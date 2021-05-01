@@ -180,7 +180,7 @@ module SSHKit
         size      = 25
         fills     = SecureRandom.random_bytes(1024*1024)
         file_name = "/tmp/file-#{size}.txt"
-        File.open(file_name, 'w') do |f|
+        File.open(file_name, 'wb') do |f|
           (size).times {f.write(fills) }
         end
         file_contents = ""
@@ -188,7 +188,7 @@ module SSHKit
           upload!(file_name, file_name)
           file_contents = download!(file_name)
         end.run
-        assert_equal File.open(file_name).read, file_contents
+        assert_equal File.open(file_name, 'rb').read, file_contents
       end
 
       def test_upload_via_pathname
@@ -211,6 +211,20 @@ module SSHKit
           })
         end.run
         assert_equal("Enter Data\nCaptured SOME DATA", captured_command_result)
+      end
+
+      def test_connection_pool_keepalive
+        # ensure we enable connection pool
+        SSHKit::Backend::Netssh.pool.idle_timeout = 10
+        Netssh.new(a_host) do |_host|
+          test :false
+        end.run
+        sleep 2.5
+        captured_command_result = nil
+        Netssh.new(a_host) do |_host|
+          captured_command_result = capture(:echo, 'some_value')
+        end.run
+        assert_equal "some_value", captured_command_result
       end
     end
 
